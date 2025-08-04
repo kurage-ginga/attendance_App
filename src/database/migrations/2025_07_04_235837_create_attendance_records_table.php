@@ -19,6 +19,9 @@ class CreateAttendanceRecordsTable extends Migration
             $table->date('date');
             $table->datetime('checkin_at')->nullable();
             $table->datetime('checkout_at')->nullable();
+            $table->enum('status', ['original', 'pending_correction', 'corrected'])
+            ->default('original')
+            ->comment('勤怠ステータス（original: 修正なし, pending_correction: 修正申請中, corrected: 修正承認済）');
             $table->timestamps();
 
             $table->unique(['user_id', 'date']);
