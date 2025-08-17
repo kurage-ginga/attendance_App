@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\AttendanceController;
 use App\Models\User;
-use Illuminate\Http\Request;
+use Illuminate\Http\StoreUserRequest;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Auth\Events\Registered;
 
@@ -18,12 +18,8 @@ class RegisterController extends Controller
 
     public function store(Request $request)
     {
-        // バリデーション
-        $validated = $request->validate([
-            'name' => ['required', 'string'],
-            'email' => ['required', 'email', 'unique:users'],
-            'password' => ['required', 'confirmed', 'min:8'],
-        ]);
+        // バリデーション済みのデータ取得
+        $validated = $request->validated();
 
         // ユーザー作成
         $user = User::create([
@@ -33,10 +29,10 @@ class RegisterController extends Controller
             'role' => 'employee',
         ]);
 
-        // メール認証
+        // メール認証イベント発火
         event(new Registered($user));
 
-        auth()->login($user);
+        Auth::guard('employee')->login($user);
 
         return redirect()->intended('/attendance');
     }

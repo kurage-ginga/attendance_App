@@ -26,7 +26,7 @@
                 <tr>
                     <td>承認待ち</td>
                     <td>{{ $record->user->name }}</td>
-                    <td>{{ $record->date }}</td>
+                    <td>{{ $record->id }}</td>
                     <td>{{ $record->note }}</td>
                     <td>{{ $record->updated_at->format('Y-m-d') }}</td>
                     <td><a href="{{ route('attendance.detail', ['date' => $record->date]) }}">詳細</a></td>
@@ -53,7 +53,7 @@
                 <tr>
                     <td>承認済み</td>
                     <td>{{ $record->user->name }}</td>
-                    <td>{{ $record->date }}</td>
+                    <td>{{ $record->id }}</td>
                     <td>{{ $record->note }}</td>
                     <td>{{ $record->updated_at->format('Y-m-d') }}</td>
                     <td><a href="{{ route('attendance.detail', ['date' => $record->date]) }}">詳細</a></td>

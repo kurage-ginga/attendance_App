@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Http\Requests\UpdateAttendanceRequest;
 use Illuminate\Support\Facades\Auth;
 use App\Models\AttendanceRecord;
 use App\Models\BreakTime;
@@ -12,7 +13,7 @@ class AttendanceController extends Controller
 {
     public function index()
     {
-        $user = Auth::user();
+        $user = Auth::guard('employee')->user();
         $today = Carbon::today();
 
         // 今日の出勤記録
@@ -39,7 +40,7 @@ class AttendanceController extends Controller
     public function start()
     {
         AttendanceRecord::create([
-            'user_id' => Auth::id(),
+            'user_id' => Auth::guard('employee')->id(),
             'date' => now()->toDateString(),
             'checkin_at' => now(),
         ]);
@@ -48,7 +49,7 @@ class AttendanceController extends Controller
 
     public function end()
     {
-        $record = AttendanceRecord::where('user_id', Auth::id())
+        $record = AttendanceRecord::where('user_id', Auth::guard('employee')->id())
             ->whereDate('date', now()->toDateString())
             ->first();
 
@@ -58,7 +59,7 @@ class AttendanceController extends Controller
 
     public function startBreak()
     {
-        $record = AttendanceRecord::where('user_id', Auth::id())
+        $record = AttendanceRecord::where('user_id', Auth::guard('employee')->id())
             ->whereDate('date', now()->toDateString())
             ->first();
 
@@ -75,7 +76,7 @@ class AttendanceController extends Controller
     public function endBreak()
     {
         $break = BreakTime::whereHas('attendanceRecord', function ($q) {
-            $q->where('user_id', Auth::id())->whereDate('date', now()->toDateString());
+            $q->where('user_id', Auth::guard('employee')->id())->whereDate('date', now()->toDateString());
         })->whereNull('end_at')->latest()->first();
 
         $break->update(['end_at' => now()]);
@@ -84,7 +85,7 @@ class AttendanceController extends Controller
 
     public function list(Request $request)
     {
-        $user = Auth::user();
+        $user = Auth::guard('employee')->user();
 
         // 対象月（デフォルトは今月）
         $month = $request->input('month') 
@@ -109,7 +110,7 @@ class AttendanceController extends Controller
 
     public function detail($date)
     {
-        $user = Auth::user();
+        $user = Auth::guard('employee')->user();
 
         $record = AttendanceRecord::with('breakTimes')
             ->where('user_id', $user->id)
@@ -120,35 +121,35 @@ class AttendanceController extends Controller
     }
 
 
-    public function update(Request $request, $date)
+    public function update(UpdateAttendanceRequest $request, $date)
     {
-        $user = Auth::user();
+        $user = Auth::guard('employee')->user();
 
         $record = AttendanceRecord::where('user_id', $user->id)
             ->where('date', $date)
             ->firstOrFail();
 
         // 勤怠情報を更新
-        $record->checkin_at = $request->input('checkin_at');
-        $record->checkout_at = $request->input('checkout_at');
+        $record->checkin_at = Carbon::createFromFormat('Y-m-d H:i', $record->date . ' ' . $request->input('checkin_at'));
+        $record->checkout_at = Carbon::createFromFormat('Y-m-d H:i', $record->date . ' ' . $request->input('checkout_at'));
         $record->status = 'pending_correction';
 
         $record->save();
 
-        // 既存の休憩時間を削除し、新たに登録
+        // 既存の休憩時間を削除して新規登録
         $record->breakTimes()->delete();
 
         $breaks = $request->input('breaks', []);
-        $date = $record->date instanceof Carbon ? $record->date : Carbon::parse($record->date);
+        $dateCarbon = Carbon::parse($record->date);
 
         foreach ($breaks as $break) {
             if (!empty($break['start_at']) && !empty($break['end_at'])) {
-                $startAt = Carbon::createFromFormat('Y-m-d H:i', $date->format('Y-m-d') . ' ' . $break['start_at']);
-                $endAt = Carbon::createFromFormat('Y-m-d H:i', $date->format('Y-m-d') . ' ' . $break['end_at']);
+                $startAt = Carbon::createFromFormat('Y-m-d H:i', $dateCarbon->format('Y-m-d') . ' ' . $break['start_at']);
+                $endAt   = Carbon::createFromFormat('Y-m-d H:i', $dateCarbon->format('Y-m-d') . ' ' . $break['end_at']);
 
                 $record->breakTimes()->create([
                     'start_at' => $startAt,
-                    'end_at' => $endAt,
+                    'end_at'   => $endAt,
                 ]);
             }
         }
@@ -158,7 +159,7 @@ class AttendanceController extends Controller
 
     public function requestList()
     {
-        $user = Auth::user();
+        $user = Auth::guard('employee')->user();
 
         $pendingRecords = AttendanceRecord::where('user_id', $user->id)
             ->where('status', 'pending_correction')
